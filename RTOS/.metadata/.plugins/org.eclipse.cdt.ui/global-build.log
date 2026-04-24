@@ -1,0 +1,56 @@
+15:36:18 **** Incremental Build of configuration Debug for project project ****
+make -j16 all 
+arm-none-eabi-size  project.elf 
+   text	   data	    bss	    dec	    hex	filename
+   9564	     12	   1644	  11220	   2bd4	project.elf
+Finished building: default.size.stdout
+ 
+15:37:59 **** Incremental Build of configuration Debug for project project ****
+make -j16 all 
+arm-none-eabi-size  project.elf 
+   text	   data	    bss	    dec	    hex	filename
+   9564	     12	   1644	  11220	   2bd4	project.elf
+Finished building: default.size.stdout
+ 
+15:38:02 **** Incremental Build of configuration Debug for project project ****
+make -j16 all 
+arm-none-eabi-size  project.elf 
+   text	   data	    bss	    dec	    hex	filename
+   9564	     12	   1644	  11220	   2bd4	project.elf
+Finished building: default.size.stdout
+ 
+15:39:22 **** Incremental Build of configuration Debug for project project ****
+make -j16 all 
+arm-none-eabi-size  project.elf 
+   text	   data	    bss	    dec	    hex	filename
+   9564	     12	   1644	  11220	   2bd4	project.elf
+Finished building: default.size.stdout
+ 
+15:40:50 **** Incremental Build of configuration Debug for project project ****
+make -j16 all 
+arm-none-eabi-size  project.elf 
+   text	   data	    bss	    dec	    hex	filename
+   9564	     12	   1644	  11220	   2bd4	project.elf
+Finished building: default.size.stdout
+ 
+17:29:45 **** Incremental Build of configuration Debug for project project ****
+make -j16 all 
+arm-none-eabi-size  project.elf 
+   text	   data	    bss	    dec	    hex	filename
+   9564	     12	   1644	  11220	   2bd4	project.elf
+Finished building: default.size.stdout
+ 
+17:29:59 **** Incremental Build of configuration Debug for project project ****
+make -j16 all 
+arm-none-eabi-size  project.elf 
+   text	   data	    bss	    dec	    hex	filename
+   9564	     12	   1644	  11220	   2bd4	project.elf
+Finished building: default.size.stdout
+ 
+17:30:51 **** Incremental Build of configuration Debug for project project ****
+make -j16 all 
+arm-none-eabi-size  project.elf 
+   text	   data	    bss	    dec	    hex	filename
+   9564	     12	   1644	  11220	   2bd4	project.elf
+Finished building: default.size.stdout
+ 
