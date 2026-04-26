@@ -69,7 +69,7 @@ static void MX_I2C2_Init(void);
 static void MX_RTC_Init(void);
 void StartDefaultTask(void const * argument);
 void StartTouchTask(void const * argument);
-
+void button_exti_init(void);
 /* USER CODE BEGIN PFP */
 float Read_Temperature(void);
 void Draw_UI_Nhom07(void);
@@ -377,7 +377,36 @@ float Read_Temperature(void)
 	    return temperature;
 
 }
+void button_exti_init()
+{
+	GPIO_InitTypeDef GPIO_InitStruct = {0};
 
+	    __HAL_RCC_GPIOA_CLK_ENABLE();
+	    __HAL_RCC_SYSCFG_CLK_ENABLE();
+
+	    // Clear toàn bộ cấu hình PA0 cũ
+	    GPIOA->MODER &= ~(0xf << 0);
+	    GPIOA->PUPDR &= ~(0xf << 0);
+	    // Cấu hình PA0 với interrupt mode
+	    GPIO_InitStruct.Pin |= GPIO_PIN_0|GPIO_PIN_1;
+	    GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;  // ← Interrupt + Falling edge
+	    GPIO_InitStruct.Pull = GPIO_PULLUP;           // Pull-up vì nút nhấn kéo xuống GND
+	    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+	    // Cấu hình NVIC
+	    HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+	    HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+}
+void EXTI0_IRQHandler()
+{
+	asm("");
+	EXTI->PR |= (1 << 0);
+}
+void EXTI1_IRQHandler()
+{
+	asm("");
+	EXTI->PR |= (1 << 1);
+}
 void StartDefaultTask(void const * argument)
 {
   /* USER CODE BEGIN 5 */
@@ -420,7 +449,7 @@ void StartTouchTask(void const * argument)
   RTC_DateTypeDef sDate;
   char msg[128];
   HAL_StatusTypeDef status;
-
+  button_exti_init();
   for(;;)
   {
     /* NÚT WAKEUP (PA0) -> LƯU DỮ LIỆU */
@@ -428,7 +457,6 @@ void StartTouchTask(void const * argument)
     {
         HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
         HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
-
         myData.temp  = temperature;
         myData.day   = sDate.Date;
         myData.month = sDate.Month;

@@ -9,6 +9,9 @@
 ../Core/Src/main.c:339:19:FRAM_Read	32	static
 ../Core/Src/main.c:343:6:Draw_UI_Nhom07	16	static
 ../Core/Src/main.c:357:7:Read_Temperature	24	static
-../Core/Src/main.c:381:6:StartDefaultTask	64	static
-../Core/Src/main.c:415:6:StartTouchTask	216	static
-../Core/Src/main.c:490:6:Error_Handler	4	static,ignoring_inline_asm
+../Core/Src/main.c:380:6:button_exti_init	40	static
+../Core/Src/main.c:400:6:EXTI0_IRQHandler	4	static
+../Core/Src/main.c:405:6:EXTI1_IRQHandler	4	static
+../Core/Src/main.c:410:6:StartDefaultTask	64	static
+../Core/Src/main.c:444:6:StartTouchTask	216	static
+../Core/Src/main.c:518:6:Error_Handler	4	static,ignoring_inline_asm

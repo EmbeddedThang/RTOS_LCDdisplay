@@ -9,6 +9,9 @@
 ../Core/Src/main.c:339:19:FRAM_Read	1
 ../Core/Src/main.c:343:6:Draw_UI_Nhom07	1
 ../Core/Src/main.c:357:7:Read_Temperature	2
-../Core/Src/main.c:381:6:StartDefaultTask	4
-../Core/Src/main.c:415:6:StartTouchTask	10
-../Core/Src/main.c:490:6:Error_Handler	1
+../Core/Src/main.c:380:6:button_exti_init	1
+../Core/Src/main.c:400:6:EXTI0_IRQHandler	1
+../Core/Src/main.c:405:6:EXTI1_IRQHandler	1
+../Core/Src/main.c:410:6:StartDefaultTask	4
+../Core/Src/main.c:444:6:StartTouchTask	10
+../Core/Src/main.c:518:6:Error_Handler	1
