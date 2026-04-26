@@ -13,6 +13,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "LCD_Driver.h"
+#include "Touch_Driver.h"
 #include <stdio.h>
 /* USER CODE END Includes */
 
@@ -123,6 +124,7 @@ int main(void)
   HAL_GPIO_WritePin(GPIOB, LCD_RST_Pin, GPIO_PIN_SET);
   HAL_Delay(50);
   HAL_GPIO_WritePin(GPIOB, LCD_CS_Pin, GPIO_PIN_SET);
+  TP_Init();
   /* USER CODE END 2 */
 
   /* Create the mutex(es) */
@@ -420,9 +422,62 @@ void StartTouchTask(void const * argument)
   RTC_DateTypeDef sDate;
   char msg[128];
   HAL_StatusTypeDef status;
+  uint16_t touch_x = 0, touch_y = 0;
 
   for(;;)
   {
+    /* ===== XPT2046 TOUCH PANEL – PLAY / PAUSE BUTTONS ===== */
+    if (TP_IsTouched())
+    {
+        if (TP_ReadCoordinates(&touch_x, &touch_y))
+        {
+            /* PLAY button: left half of the white rectangle (x: 10-120, y: 100-185) */
+            if (touch_x >= BTN_PLAY_X_MIN  && touch_x <= BTN_PLAY_X_MAX &&
+                touch_y >= BTN_AREA_Y_MIN  && touch_y <= BTN_AREA_Y_MAX)
+            {
+                if (osMutexWait(LcdMutexHandle, osWaitForever) == osOK)
+                {
+                    HAL_GPIO_WritePin(GPIOB, LCD_CS_Pin, GPIO_PIN_RESET);
+                    lcd_fill_rect(10, 210, 220, 80, WHITE);
+                    lcd_display_string(15, 220, (uint8_t*)"PLAY pressed!", FONT_1206, 0x07E0);
+                    HAL_GPIO_WritePin(GPIOB, LCD_CS_Pin, GPIO_PIN_SET);
+                    osMutexRelease(LcdMutexHandle);
+                }
+                /* Debounce: wait until the finger is lifted (max 2 s) */
+                {
+                    uint32_t debounce_count = 0;
+                    while (TP_IsTouched() && debounce_count < TOUCH_DEBOUNCE_MAX_ITER)
+                    {
+                        osDelay(10);
+                        debounce_count++;
+                    }
+                }
+            }
+            /* PAUSE button: right half of the white rectangle (x: 120-230, y: 100-185) */
+            else if (touch_x >= BTN_PAUSE_X_MIN && touch_x <= BTN_PAUSE_X_MAX &&
+                     touch_y >= BTN_AREA_Y_MIN   && touch_y <= BTN_AREA_Y_MAX)
+            {
+                if (osMutexWait(LcdMutexHandle, osWaitForever) == osOK)
+                {
+                    HAL_GPIO_WritePin(GPIOB, LCD_CS_Pin, GPIO_PIN_RESET);
+                    lcd_fill_rect(10, 210, 220, 80, WHITE);
+                    lcd_display_string(15, 220, (uint8_t*)"PAUSE pressed!", FONT_1206, 0xF800);
+                    HAL_GPIO_WritePin(GPIOB, LCD_CS_Pin, GPIO_PIN_SET);
+                    osMutexRelease(LcdMutexHandle);
+                }
+                /* Debounce: wait until the finger is lifted (max 2 s) */
+                {
+                    uint32_t debounce_count = 0;
+                    while (TP_IsTouched() && debounce_count < TOUCH_DEBOUNCE_MAX_ITER)
+                    {
+                        osDelay(10);
+                        debounce_count++;
+                    }
+                }
+            }
+        }
+    }
+
     /* NÚT WAKEUP (PA0) -> LƯU DỮ LIỆU */
     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET)
     {
