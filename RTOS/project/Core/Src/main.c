@@ -19,7 +19,10 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 #define FRAM_I2C_ADDR 0xA0
-
+#define V25             0.76f       /* V — voltage at 25°C            */
+#define AVG_SLOPE       0.0025f     /* V/°C — 2.5 mV/°C              */
+#define VDDA            3.3f        /* V — điện áp tham chiếu ADC     */
+#define ADC_RESOLUTION  4095.0f
 typedef struct {
     float temp;
     uint8_t day;
@@ -353,14 +356,27 @@ void Draw_UI_Nhom07(void)
 
 float Read_Temperature(void)
 {
-    uint32_t val = 0;
-    HAL_ADC_Start(&hadc1);
-    if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) val = HAL_ADC_GetValue(&hadc1);
-    HAL_ADC_Stop(&hadc1);
-    if (val == 0) return 0.0f;
-    return (((val * 3.3f) / 4095.0f) - 0.76f) / 0.0025f + 25.0f;
+	    ADC->CCR |= ADC_CCR_TSVREFE;
+
+	    HAL_ADC_Start(&hadc1);
+
+	    if (HAL_ADC_PollForConversion(&hadc1, 10) != HAL_OK)
+	    {
+	        HAL_ADC_Stop(&hadc1);
+	        return -999.0f;
+	    }
+	    uint32_t adc_raw = HAL_ADC_GetValue(&hadc1);
+	    HAL_ADC_Stop(&hadc1);
+
+	    float v_sense = ((float)adc_raw / ADC_RESOLUTION) * VDDA;
+
+	    /* 6. Áp dụng công thức datasheet Section 5.3.21:
+	          Temp = (V_SENSE - V25) / Avg_Slope + 25             */
+	    float temperature = ((v_sense - V25) / AVG_SLOPE) + 25.0f;
+
+	    return temperature;
+
 }
-/* USER CODE END 4 */
 
 void StartDefaultTask(void const * argument)
 {
