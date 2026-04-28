@@ -23,6 +23,10 @@
 #define AVG_SLOPE       0.0025f     /* V/°C — 2.5 mV/°C              */
 #define VDDA            3.3f        /* V — điện áp tham chiếu ADC     */
 #define ADC_RESOLUTION  4095.0f
+void Draw_Play_Icon(uint16_t cx, uint16_t cy, uint8_t size, uint16_t color);
+void Draw_Pause_Icon(uint16_t cx, uint16_t cy,
+                     uint8_t bar_w, uint8_t bar_h, uint8_t gap,
+                     uint16_t color);
 typedef struct {
     float temp;
     uint8_t day;
@@ -58,6 +62,12 @@ osThreadId TouchTaskHandle;
 osMutexId LcdMutexHandle;
 /* USER CODE BEGIN PV */
 float temperature = 0;
+uint8_t flag_play = 0,flag_pause=0;
+DataLog_t myData = {0};
+RTC_TimeTypeDef sTime;
+RTC_DateTypeDef sDate;
+char msg[128];
+HAL_StatusTypeDef status;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -70,6 +80,8 @@ static void MX_RTC_Init(void);
 void StartDefaultTask(void const * argument);
 void StartTouchTask(void const * argument);
 void button_exti_init(void);
+void play_button(void);
+void pause_button(void);
 /* USER CODE BEGIN PFP */
 float Read_Temperature(void);
 void Draw_UI_Nhom07(void);
@@ -114,7 +126,7 @@ int main(void)
   MX_SPI1_Init();
   MX_I2C2_Init();
   MX_RTC_Init();
-
+  button_exti_init();
   /* USER CODE BEGIN 2 */
   /* KHỞI ĐỘNG MÀN HÌNH SAU KHI INIT */
   HAL_GPIO_WritePin(GPIOB, LCD_BL_Pin, GPIO_PIN_SET);
@@ -251,8 +263,8 @@ static void MX_RTC_Init(void)
   }
   /* USER CODE END Check_RTC_BKUP */
 
-  sTime.Hours = 19;
-  sTime.Minutes = 15;
+  sTime.Hours = 22;
+  sTime.Minutes = 18;
   sTime.Seconds = 0;
   sTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
   sTime.StoreOperation = RTC_STOREOPERATION_RESET;
@@ -260,7 +272,7 @@ static void MX_RTC_Init(void)
 
   sDate.WeekDay = RTC_WEEKDAY_WEDNESDAY;
   sDate.Month = RTC_MONTH_APRIL;
-  sDate.Date = 15;
+  sDate.Date = 28;
   sDate.Year = 26;
   if (HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BIN) != HAL_OK) { Error_Handler(); }
 
@@ -348,33 +360,54 @@ void Draw_UI_Nhom07(void)
     lcd_fill_rect(10, 55, 220, 35, WHITE);
     lcd_display_string(15, 65, (uint8_t*)"Internal Temp: ", FONT_1206, 0x0292);
     lcd_fill_rect(10, 100, 220, 85, WHITE);
+    Draw_Play_Icon(83, 142, 22, BLACK);
+    Draw_Pause_Icon(157, 142, 10, 38, 10, BLACK);
     lcd_display_string(50, 165, (uint8_t*)"(WAKE-SAVE)", FONT_1206, 0x0292);
     lcd_display_string(150, 165, (uint8_t*)"(USER-READ)", FONT_1206, 0x0292);
     lcd_fill_rect(10, 195, 220, 110, WHITE);
     lcd_display_string(15, 200, (uint8_t*)"Data Log View:", FONT_1206, 0x0292);
 }
-
+void Draw_Pause_Icon(uint16_t cx, uint16_t cy,
+                     uint8_t bar_w, uint8_t bar_h, uint8_t gap,
+                     uint16_t color)
+{
+    /* Thanh trái */
+    lcd_fill_rect(cx - gap/2 - bar_w,  cy - bar_h/2,  bar_w, bar_h, color);
+    /* Thanh phải */
+    lcd_fill_rect(cx + gap/2,           cy - bar_h/2,  bar_w, bar_h, color);
+}
+void Draw_Play_Icon(uint16_t cx, uint16_t cy, uint8_t size, uint16_t color)
+{
+    for (int8_t dy = -size; dy <= size; dy++)
+    {
+        /* Chiều rộng mỗi hàng = size - |dy|
+         * Bắt đầu từ (cx - size) → kéo dài sang phải                */
+        uint16_t w = (uint16_t)(size - (dy < 0 ? -dy : dy));
+        if (w == 0) continue;
+        lcd_fill_rect(cx - size, cy + dy, w, 1, color);
+    }
+}
 float Read_Temperature(void)
 {
-	    ADC->CCR |= ADC_CCR_TSVREFE;
+	ADC->CCR |= ADC_CCR_TSVREFE;
 
-	    HAL_ADC_Start(&hadc1);
+		    HAL_ADC_Start(&hadc1);
 
-	    if (HAL_ADC_PollForConversion(&hadc1, 10) != HAL_OK)
-	    {
-	        HAL_ADC_Stop(&hadc1);
-	        return -999.0f;
-	    }
-	    uint32_t adc_raw = HAL_ADC_GetValue(&hadc1);
-	    HAL_ADC_Stop(&hadc1);
+		    if (HAL_ADC_PollForConversion(&hadc1, 10) != HAL_OK)
+		    {
+		        HAL_ADC_Stop(&hadc1);
+		        return -999.0f;
+		    }
+		    uint32_t adc_raw = HAL_ADC_GetValue(&hadc1);
+		    HAL_ADC_Stop(&hadc1);
 
-	    float v_sense = ((float)adc_raw / ADC_RESOLUTION) * VDDA;
+		    float v_sense = ((float)adc_raw / ADC_RESOLUTION) * VDDA;
 
-	    /* 6. Áp dụng công thức datasheet Section 5.3.21:
-	          Temp = (V_SENSE - V25) / Avg_Slope + 25             */
-	    float temperature = ((v_sense - V25) / AVG_SLOPE) + 25.0f;
+		    /* 6. Áp dụng công thức datasheet Section 5.3.21:
+		          Temp = (V_SENSE - V25) / Avg_Slope + 25             */
+		    float temperature = ((v_sense - V25) / AVG_SLOPE) + 25.0f;
 
-	    return temperature;
+		    return temperature;
 
 }
 void button_exti_init()
@@ -399,11 +432,13 @@ void button_exti_init()
 }
 void EXTI0_IRQHandler()
 {
-	asm("");
+	flag_pause = 1;
 	EXTI->PR |= (1 << 0);
+
 }
 void EXTI1_IRQHandler()
 {
+	flag_play =1;
 	asm("");
 	EXTI->PR |= (1 << 1);
 }
@@ -440,79 +475,77 @@ void StartDefaultTask(void const * argument)
   }
   /* USER CODE END 5 */
 }
+void pause_button()
+{
+	 HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+	        HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+	        myData.temp  = temperature;
+	        myData.day   = sDate.Date;
+	        myData.month = sDate.Month;
+	        myData.year  = sDate.Year;
+	        myData.hour  = sTime.Hours;
+	        myData.min   = sTime.Minutes;
+	        myData.sec   = sTime.Seconds;
 
+	        status = FRAM_Write(0x0000, (uint8_t*)&myData, sizeof(myData));
+
+	        if (osMutexWait(LcdMutexHandle, osWaitForever) == osOK)
+	        {
+	            HAL_GPIO_WritePin(GPIOB, LCD_CS_Pin, GPIO_PIN_RESET);
+	            lcd_fill_rect(10, 210, 220, 80, WHITE);
+	            if(status == HAL_OK)
+	                lcd_display_string(15, 220, (uint8_t*)"SAVE: Fram Stored OK!", FONT_1206, 0x07E0);
+	            else
+	                lcd_display_string(15, 220, (uint8_t*)"SAVE FAIL: I2C ERROR", FONT_1206, 0xF800);
+
+	            HAL_GPIO_WritePin(GPIOB, LCD_CS_Pin, GPIO_PIN_SET);
+	            osMutexRelease(LcdMutexHandle);
+	        }
+	        flag_pause = 0;
+}
+void play_button()
+{
+	status = FRAM_Read(0x0000, (uint8_t*)&myData, sizeof(myData));
+
+	        if (osMutexWait(LcdMutexHandle, osWaitForever) == osOK)
+	        {
+	            HAL_GPIO_WritePin(GPIOB, LCD_CS_Pin, GPIO_PIN_RESET);
+	            lcd_fill_rect(10, 210, 220, 80, WHITE);
+	            if(status == HAL_OK) {
+	                int t_int = (int)myData.temp;
+	                int t_frac = (int)((myData.temp - t_int) * 10.0f);
+	                if(t_frac < 0) t_frac = -t_frac;
+
+	                /* Hiển thị định dạng: Ngày/Tháng/Năm Giờ:Phút:Giây */
+	                sprintf(msg, "%02d/%02d/%02d", myData.day, myData.month, myData.year);
+	                lcd_display_string(15, 220, (uint8_t*)msg, FONT_1206, 0x0292);
+
+	                sprintf(msg, "%02d:%02d:%02d - %d.%d C", myData.hour, myData.min, myData.sec, t_int, t_frac);
+	                lcd_display_string(15, 245, (uint8_t*)msg, FONT_1206, 0x0292);
+	            } else {
+	                lcd_display_string(15, 220, (uint8_t*)"READ FAIL: I2C ERROR", FONT_1206, 0xF800);
+	            }
+	            HAL_GPIO_WritePin(GPIOB, LCD_CS_Pin, GPIO_PIN_SET);
+	            osMutexRelease(LcdMutexHandle);
+	        }
+	        flag_play = 0;
+}
 void StartTouchTask(void const * argument)
 {
   /* USER CODE BEGIN StartTouchTask */
-  DataLog_t myData = {0};
-  RTC_TimeTypeDef sTime;
-  RTC_DateTypeDef sDate;
-  char msg[128];
-  HAL_StatusTypeDef status;
-  button_exti_init();
   for(;;)
   {
-    /* NÚT WAKEUP (PA0) -> LƯU DỮ LIỆU */
-    if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET)
+    if (flag_pause == 1)
     {
-        HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
-        HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
-        myData.temp  = temperature;
-        myData.day   = sDate.Date;
-        myData.month = sDate.Month;
-        myData.year  = sDate.Year;
-        myData.hour  = sTime.Hours;
-        myData.min   = sTime.Minutes;
-        myData.sec   = sTime.Seconds;
 
-        status = FRAM_Write(0x0000, (uint8_t*)&myData, sizeof(myData));
-
-        if (osMutexWait(LcdMutexHandle, osWaitForever) == osOK)
-        {
-            HAL_GPIO_WritePin(GPIOB, LCD_CS_Pin, GPIO_PIN_RESET);
-            lcd_fill_rect(10, 210, 220, 80, WHITE);
-            if(status == HAL_OK)
-                lcd_display_string(15, 220, (uint8_t*)"SAVE: Fram Stored OK!", FONT_1206, 0x07E0);
-            else
-                lcd_display_string(15, 220, (uint8_t*)"SAVE FAIL: I2C ERROR", FONT_1206, 0xF800);
-
-            HAL_GPIO_WritePin(GPIOB, LCD_CS_Pin, GPIO_PIN_SET);
-            osMutexRelease(LcdMutexHandle);
-        }
-        while(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET) osDelay(10);
+        pause_button();
     }
-
-    /* NÚT USER (PA1) -> ĐỌC DỮ LIỆU */
-    if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1) == GPIO_PIN_RESET)
+    if (flag_play == 1)
     {
-        status = FRAM_Read(0x0000, (uint8_t*)&myData, sizeof(myData));
-
-        if (osMutexWait(LcdMutexHandle, osWaitForever) == osOK)
-        {
-            HAL_GPIO_WritePin(GPIOB, LCD_CS_Pin, GPIO_PIN_RESET);
-            lcd_fill_rect(10, 210, 220, 80, WHITE);
-            if(status == HAL_OK) {
-                int t_int = (int)myData.temp;
-                int t_frac = (int)((myData.temp - t_int) * 10.0f);
-                if(t_frac < 0) t_frac = -t_frac;
-
-                /* Hiển thị định dạng: Ngày/Tháng/Năm Giờ:Phút:Giây */
-                sprintf(msg, "%02d/%02d/%02d", myData.day, myData.month, myData.year);
-                lcd_display_string(15, 220, (uint8_t*)msg, FONT_1206, 0x0292);
-
-                sprintf(msg, "%02d:%02d:%02d - %d.%d C", myData.hour, myData.min, myData.sec, t_int, t_frac);
-                lcd_display_string(15, 245, (uint8_t*)msg, FONT_1206, 0x0292);
-            } else {
-                lcd_display_string(15, 220, (uint8_t*)"READ FAIL: I2C ERROR", FONT_1206, 0xF800);
-            }
-            HAL_GPIO_WritePin(GPIOB, LCD_CS_Pin, GPIO_PIN_SET);
-            osMutexRelease(LcdMutexHandle);
-        }
-        while(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1) == GPIO_PIN_RESET) osDelay(10);
+    	play_button();
     }
     osDelay(50);
   }
-  /* USER CODE END StartTouchTask */
 }
 
 void Error_Handler(void) { __disable_irq(); while (1) {} }
