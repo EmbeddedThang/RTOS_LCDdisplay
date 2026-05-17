@@ -1,0 +1,7 @@
+../Core/Src/Touch_XPT2046.c:51:16:tp_spi_transfer	32	static
+../Core/Src/Touch_XPT2046.c:65:17:tp_read_adc	24	static
+../Core/Src/Touch_XPT2046.c:81:17:tp_map	16	static
+../Core/Src/Touch_XPT2046.c:100:6:Touch_IsPressed	8	static
+../Core/Src/Touch_XPT2046.c:109:6:Touch_ReadRaw	16	static
+../Core/Src/Touch_XPT2046.c:135:6:Touch_GetPoint	32	static
+../Core/Src/Touch_XPT2046.c:161:6:Touch_GetAveragedPoint	96	static

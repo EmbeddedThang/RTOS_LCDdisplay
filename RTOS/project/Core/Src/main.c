@@ -13,6 +13,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "LCD_Driver.h"
+#include "Touch_XPT2046.h"
 #include <stdio.h>
 /* USER CODE END Includes */
 
@@ -389,6 +390,7 @@ void Draw_Play_Icon(uint16_t cx, uint16_t cy, uint8_t size, uint16_t color)
 }
 float Read_Temperature(void)
 {
+
 	ADC->CCR |= ADC_CCR_TSVREFE;
 
 		    HAL_ADC_Start(&hadc1);
@@ -532,6 +534,8 @@ void play_button()
 }
 void StartTouchTask(void const * argument)
 {
+	 TouchPoint_t tp;
+	    char touch_buf[32];
   /* USER CODE BEGIN StartTouchTask */
   for(;;)
   {
@@ -544,6 +548,37 @@ void StartTouchTask(void const * argument)
     {
     	play_button();
     }
+    if (Touch_IsPressed())
+           {
+               /* Dùng mutex vì SPI1 chia sẻ với LCD */
+               if (osMutexWait(LcdMutexHandle, 20) == osOK)
+               {
+                   /* Đảm bảo LCD_CS = HIGH trước khi TP dùng SPI */
+                   HAL_GPIO_WritePin(GPIOB, LCD_CS_Pin, GPIO_PIN_SET);
+
+                   /* Lấy tọa độ trung bình (lọc nhiễu tốt) */
+                   Touch_GetAveragedPoint(&tp);
+
+                   HAL_GPIO_WritePin(GPIOB, LCD_CS_Pin, GPIO_PIN_RESET);
+
+                   if (tp.valid)
+                   {
+                       /* --- Hiển thị tọa độ lên vùng trống trên LCD --- */
+                       lcd_fill_rect(10, 55, 220, 35, WHITE);   /* Xóa vùng cũ */
+
+                       sprintf(touch_buf, "Touch: X=%3d Y=%3d", tp.x, tp.y);
+                       lcd_display_string(15, 65,
+                                          (uint8_t *)touch_buf,
+                                          FONT_1206, 0x0292);
+
+                       /* --- Vẽ dấu chấm tại vị trí chạm --- */
+                       lcd_draw_bigdot(0xF800, tp.x, tp.y);    /* Chấm đỏ */
+                   }
+
+                   HAL_GPIO_WritePin(GPIOB, LCD_CS_Pin, GPIO_PIN_SET);
+                   osMutexRelease(LcdMutexHandle);
+               }
+           }
     osDelay(50);
   }
 }

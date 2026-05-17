@@ -1,5 +1,6 @@
 "./Core/Src/LCD_Driver.o"
 "./Core/Src/LCD_lib.o"
+"./Core/Src/Touch_XPT2046.o"
 "./Core/Src/freertos.o"
 "./Core/Src/main.o"
 "./Core/Src/stm32f4xx_hal_msp.o"
