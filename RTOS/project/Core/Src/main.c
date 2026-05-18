@@ -80,7 +80,6 @@ static void MX_I2C2_Init(void);
 static void MX_RTC_Init(void);
 void StartDefaultTask(void const * argument);
 void StartTouchTask(void const * argument);
-void button_exti_init(void);
 void play_button(void);
 void pause_button(void);
 /* USER CODE BEGIN PFP */
@@ -127,7 +126,6 @@ int main(void)
   MX_SPI1_Init();
   MX_I2C2_Init();
   MX_RTC_Init();
-  button_exti_init();
   /* USER CODE BEGIN 2 */
   /* KHỞI ĐỘNG MÀN HÌNH SAU KHI INIT */
   HAL_GPIO_WritePin(GPIOB, LCD_BL_Pin, GPIO_PIN_SET);
@@ -145,11 +143,11 @@ int main(void)
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 1024);
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 512);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* definition and creation of TouchTask */
-  osThreadDef(TouchTask, StartTouchTask, osPriorityAboveNormal, 0, 1024);
+  osThreadDef(TouchTask, StartTouchTask, osPriorityAboveNormal, 0, 512);
   TouchTaskHandle = osThreadCreate(osThread(TouchTask), NULL);
 
   /* Start scheduler */
@@ -258,7 +256,6 @@ static void MX_RTC_Init(void)
   if (HAL_RTC_Init(&hrtc) != HAL_OK) { Error_Handler(); }
 
   /* USER CODE BEGIN Check_RTC_BKUP */
-  // Kiểm tra xem đã từng cài đặt thời gian chưa, nếu rồi thì thoát để không bị reset về 0
   if (HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) == 0x9999) {
       return;
   }
@@ -312,17 +309,15 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOB, LCD_RST_Pin|FRAM_CS_Pin|LCD_BL_Pin|LCD_CS_Pin|LCD_DC_Pin|TP_CS_Pin, GPIO_PIN_RESET);
 
   /* USER CODE BEGIN MX_GPIO_Init_1 */
-  // GHI ĐÈ LẠI CẤU HÌNH DO CUBEMX LÀM SAI (CubeMX set PA1 thành Pulldown là sai với board của bạn)
   GPIO_InitStruct.Pin = BTN_SAVE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN; // PA0 nối 3.3V
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   GPIO_InitStruct.Pin = BTN_READ_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;   // PA1 nối GND (Cái này CubeMX làm sai, mình fix lại ở đây)
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-  /* USER CODE END MX_GPIO_Init_1 */
 
   GPIO_InitStruct.Pin = LCD_RST_Pin|LCD_BL_Pin|LCD_CS_Pin|LCD_DC_Pin|TP_CS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -335,7 +330,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(FRAM_CS_GPIO_Port, &GPIO_InitStruct);
-
   GPIO_InitStruct.Pin = TP_IRQ_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
@@ -372,17 +366,14 @@ void Draw_Pause_Icon(uint16_t cx, uint16_t cy,
                      uint8_t bar_w, uint8_t bar_h, uint8_t gap,
                      uint16_t color)
 {
-    /* Thanh trái */
     lcd_fill_rect(cx - gap/2 - bar_w,  cy - bar_h/2,  bar_w, bar_h, color);
-    /* Thanh phải */
+
     lcd_fill_rect(cx + gap/2,           cy - bar_h/2,  bar_w, bar_h, color);
 }
 void Draw_Play_Icon(uint16_t cx, uint16_t cy, uint8_t size, uint16_t color)
 {
     for (int8_t dy = -size; dy <= size; dy++)
     {
-        /* Chiều rộng mỗi hàng = size - |dy|
-         * Bắt đầu từ (cx - size) → kéo dài sang phải                */
         uint16_t w = (uint16_t)(size - (dy < 0 ? -dy : dy));
         if (w == 0) continue;
         lcd_fill_rect(cx - size, cy + dy, w, 1, color);
@@ -411,38 +402,6 @@ float Read_Temperature(void)
 
 		    return temperature;
 
-}
-void button_exti_init()
-{
-	GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-	    __HAL_RCC_GPIOA_CLK_ENABLE();
-	    __HAL_RCC_SYSCFG_CLK_ENABLE();
-
-	    // Clear toàn bộ cấu hình PA0 cũ
-	    GPIOA->MODER &= ~(0xf << 0);
-	    GPIOA->PUPDR &= ~(0xf << 0);
-	    // Cấu hình PA0 với interrupt mode
-	    GPIO_InitStruct.Pin |= GPIO_PIN_0|GPIO_PIN_1;
-	    GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;  // ← Interrupt + Falling edge
-	    GPIO_InitStruct.Pull = GPIO_PULLUP;           // Pull-up vì nút nhấn kéo xuống GND
-	    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-	    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-	    // Cấu hình NVIC
-	    HAL_NVIC_EnableIRQ(EXTI0_IRQn);
-	    HAL_NVIC_EnableIRQ(EXTI1_IRQn);
-}
-void EXTI0_IRQHandler()
-{
-	flag_pause = 1;
-	EXTI->PR |= (1 << 0);
-
-}
-void EXTI1_IRQHandler()
-{
-	flag_play =1;
-	asm("");
-	EXTI->PR |= (1 << 1);
 }
 void StartDefaultTask(void const * argument)
 {
@@ -475,11 +434,11 @@ void StartDefaultTask(void const * argument)
     }
     osDelay(500);
   }
-  /* USER CODE END 5 */
+
 }
 void pause_button()
 {
-	 HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+	 	 	HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
 	        HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
 	        myData.temp  = temperature;
 	        myData.day   = sDate.Date;
@@ -517,8 +476,6 @@ void play_button()
 	                int t_int = (int)myData.temp;
 	                int t_frac = (int)((myData.temp - t_int) * 10.0f);
 	                if(t_frac < 0) t_frac = -t_frac;
-
-	                /* Hiển thị định dạng: Ngày/Tháng/Năm Giờ:Phút:Giây */
 	                sprintf(msg, "%02d/%02d/%02d", myData.day, myData.month, myData.year);
 	                lcd_display_string(15, 220, (uint8_t*)msg, FONT_1206, 0x0292);
 
@@ -535,50 +492,36 @@ void play_button()
 void StartTouchTask(void const * argument)
 {
 	 TouchPoint_t tp;
-	    char touch_buf[32];
+	 char touch_buf[32];
   /* USER CODE BEGIN StartTouchTask */
   for(;;)
   {
-    if (flag_pause == 1)
-    {
-
-        pause_button();
-    }
-    if (flag_play == 1)
-    {
-    	play_button();
-    }
     if (Touch_IsPressed())
            {
-               /* Dùng mutex vì SPI1 chia sẻ với LCD */
-               if (osMutexWait(LcdMutexHandle, 20) == osOK)
+               if (osMutexWait(LcdMutexHandle, 100) == osOK)
                {
-                   /* Đảm bảo LCD_CS = HIGH trước khi TP dùng SPI */
                    HAL_GPIO_WritePin(GPIOB, LCD_CS_Pin, GPIO_PIN_SET);
-
-                   /* Lấy tọa độ trung bình (lọc nhiễu tốt) */
                    Touch_GetAveragedPoint(&tp);
 
                    HAL_GPIO_WritePin(GPIOB, LCD_CS_Pin, GPIO_PIN_RESET);
 
                    if (tp.valid)
                    {
-                       /* --- Hiển thị tọa độ lên vùng trống trên LCD --- */
-                       lcd_fill_rect(10, 55, 220, 35, WHITE);   /* Xóa vùng cũ */
-
-                       sprintf(touch_buf, "Touch: X=%3d Y=%3d", tp.x, tp.y);
-                       lcd_display_string(15, 65,
-                                          (uint8_t *)touch_buf,
-                                          FONT_1206, 0x0292);
-
-                       /* --- Vẽ dấu chấm tại vị trí chạm --- */
-                       lcd_draw_bigdot(0xF800, tp.x, tp.y);    /* Chấm đỏ */
+                       if ((tp.x>=70)&&(tp.x<=90)&&(tp.y>=70)&&((tp.y<=95)))
+                       {
+                    	   flag_play  =  1;
+                       }
+                       if ((tp.x>=20)&&(tp.x<=45)&&(tp.y>=70)&&((tp.y<=95)))
+                       {
+                    	   flag_pause = 1;
+                       }
                    }
-
                    HAL_GPIO_WritePin(GPIOB, LCD_CS_Pin, GPIO_PIN_SET);
                    osMutexRelease(LcdMutexHandle);
                }
            }
+    if (flag_play) play_button();
+    if (flag_pause) pause_button();
     osDelay(50);
   }
 }
